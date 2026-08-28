@@ -1,0 +1,125 @@
+// ============================================================================
+// نظام تتبع خطط العمل - AREF Marrakech-Safi
+// Prisma schema — قاعدة بيانات مركزية واحدة، كل عملية مرتبطة بمديرية + سنة دراسية
+// ============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// نستخدم String للأدوار والوضعيات للمحافظة على توافق قاعدة البيانات والكود الحالي.
+ // القيم المقبولة:
+ // Role: ADMIN | REGIONAL | PROVINCIAL
+ // ActionStatus: NOT_STARTED | IN_PROGRESS | DONE | LATE | STOPPED
+ // يمكن لاحقًا تحويلها إلى enum PostgreSQL دون تغيير منطق التطبيق.
+// مع التحقق من صحة القيم في الكود (Zod في actions.routes.ts). القيم المقبولة:
+// Role: ADMIN | REGIONAL | PROVINCIAL
+// ActionStatus: NOT_STARTED | IN_PROGRESS | DONE | LATE | STOPPED
+// عند الانتقال إلى PostgreSQL يمكن اختياريًا إعادة تفعيل enum حقيقي، لكن String يعمل بنفس الكفاءة هنا.
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String
+  fullName      String
+  role          String   // ADMIN | REGIONAL | PROVINCIAL
+  // إلزامي فقط للمنسق الإقليمي: المديرية التي يتبع لها حصريًا
+  directorateId String?
+  directorate   Directorate? @relation(fields: [directorateId], references: [id])
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  createdActions Action[]   @relation("ActionCreatedBy")
+  auditLogs      AuditLog[]
+}
+
+model Directorate {
+  id        String   @id @default(uuid())
+  name      String   @unique  // مراكش، الصويرة، ...
+  code      String   @unique  // slug تقني: marrakech, essaouira, ...
+  createdAt DateTime @default(now())
+
+  users       User[]
+  actionPlans ActionPlan[]
+  actions     Action[]
+}
+
+model AcademicYear {
+  id        String   @id @default(uuid())
+  label     String   @unique // "2026/2027"
+  startYear Int      @unique // 2026 — يستعمل للترتيب
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  actionPlans ActionPlan[]
+  actions     Action[]
+}
+
+// رأس خطة العمل: مديرية + سنة دراسية (يُنشأ تلقائيًا عند أول عملية)
+model ActionPlan {
+  id             String   @id @default(uuid())
+  directorateId  String
+  directorate    Directorate  @relation(fields: [directorateId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  createdAt      DateTime @default(now())
+
+  actions Action[]
+
+  @@unique([directorateId, academicYearId])
+}
+
+model Action {
+  id             String   @id @default(uuid())
+  actionPlanId   String
+  actionPlan     ActionPlan @relation(fields: [actionPlanId], references: [id], onDelete: Cascade)
+
+  // يكرر directorateId/academicYearId مباشرة على Action لتبسيط الاستعلامات والفهرسة
+  directorateId  String
+  directorate    Directorate  @relation(fields: [directorateId], references: [id])
+  academicYearId String
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+
+  number         Int      // رقم العملية — فريد داخل نفس (المديرية + السنة)
+  title          String   // العملية
+  coordinatorName String? // منسق العملية — حقل نصي حر (كما في نموذج Excel الأصلي، عمود C)
+
+  startDate      DateTime? // بداية الإنجاز
+  endDate        DateTime? // نهاية الإنجاز
+
+  indicator      String?   // المؤشر
+  currentValue   Float?    // القيمة الحالية
+  targetValue    Float?    // القيمة المستهدفة
+  achievedValue  Float?    // القيمة المنجزة
+  isPercentage   Boolean  @default(true) // يعكس تنسيق 0% الأصلي في ملف Excel
+
+  status         String   @default("NOT_STARTED") // NOT_STARTED | IN_PROGRESS | DONE | LATE | STOPPED
+  isCompleted    Boolean  @default(false) // زر "تم الإنجاز"
+  completedAt    DateTime?
+
+  createdById    String?
+  createdBy      User?    @relation("ActionCreatedBy", fields: [createdById], references: [id])
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([directorateId, academicYearId, number])
+  @@index([directorateId, academicYearId, status])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  user       User?    @relation(fields: [userId], references: [id])
+  entityType String   // "Action"
+  entityId   String
+  actionType String   // "CREATE" | "UPDATE" | "DELETE"
+  beforeJson String?
+  afterJson  String?
+  createdAt  DateTime @default(now())
+}
