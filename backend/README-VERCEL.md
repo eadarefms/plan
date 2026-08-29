@@ -39,3 +39,33 @@ Si le dépôt contient `frontend/` et `backend/`, choisissez `backend` comme Roo
 
 Le point d'entrée Vercel est :
 `api/index.ts`
+
+## استعادة كلمة المرور عبر البريد الإلكتروني
+
+تمت إضافة:
+- `POST /api/auth/forgot-password`
+- `POST /api/auth/reset-password`
+- صفحة frontend: `/forgot-password`
+- صفحة frontend: `/reset-password?token=...`
+
+يتم إنشاء رمز عشوائي، تخزين بصمته فقط في قاعدة البيانات، وصلاحية الرابط 30 دقيقة ويُستخدم مرة واحدة فقط.
+
+### إعداد البريد الإلكتروني في Vercel
+
+أضف في **Environment Variables → Production**:
+- `RESEND_API_KEY` = مفتاح API من Resend
+- `EMAIL_FROM` = عنوان مرسل من نطاق تم التحقق منه في Resend، مثال: `نظام تتبع خطط العمل <noreply@aref-ms.ma>`
+- `FRONTEND_URL` = `https://arefplan.vercel.app`
+
+بعد إضافة المتغيرات، أعد نشر الـ backend.
+
+### تطبيق تعديل قاعدة البيانات
+
+من مجلد `backend`:
+```bash
+npx prisma generate
+npx prisma migrate deploy
+npm run build
+```
+
+ثم ادفع التغييرات إلى GitHub، وسيتم نشرها على Vercel.
