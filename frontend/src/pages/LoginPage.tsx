@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { extractErrorMessage } from '../components/ui';
 
@@ -45,6 +45,10 @@ export default function LoginPage() {
           <button type="submit" disabled={loading} className="btn btn-primary w-full">
             {loading ? 'جارٍ تسجيل الدخول...' : 'تسجيل الدخول'}
           </button>
+
+          <div className="text-center">
+            <Link to="/forgot-password" className="text-sm text-brand-700 hover:underline">نسيت كلمة المرور؟</Link>
+          </div>
 
           <p className="text-xs text-slate-400 text-center pt-2">
             حسابات تجريبية: admin@aref-ms.ma · regional@example.com · marrakech@example.com (كلمة المرور: Passer@2026)

@@ -6,6 +6,8 @@ import { ToastProvider } from './components/ui';
 import Layout from './components/Layout';
 
 import LoginPage from './pages/LoginPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 import HomePage from './pages/HomePage';
 import ActionsPage from './pages/ActionsPage';
 import ReportsPage from './pages/ReportsPage';
@@ -25,6 +27,8 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+      <Route path="/forgot-password" element={user ? <Navigate to="/" replace /> : <ForgotPasswordPage />} />
+      <Route path="/reset-password" element={user ? <Navigate to="/" replace /> : <ResetPasswordPage />} />
       <Route path="/" element={<PrivateRoute><HomePage /></PrivateRoute>} />
       <Route path="/actions" element={<PrivateRoute><ActionsPage /></PrivateRoute>} />
       {/* /dashboard/regional أُزيل لأنه كان مطابقًا تمامًا لمحتوى "/" لدى المنسق الجهوي والمدير — نُعيد التوجيه لتجنب أي رابط قديم مكسور */}
