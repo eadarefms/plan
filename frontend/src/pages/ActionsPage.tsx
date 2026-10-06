@@ -55,7 +55,7 @@ export default function ActionsPage() {
     api.get('/actions', {
       params: {
         academicYearId: selectedYearId,
-        directorateId: directorateFilter,
+        ...(directorateFilter !== 'ACADEMY' ? { directorateId: directorateFilter } : {}),
         status: statusFilter || undefined,
         search: search || undefined,
         page, pageSize: 15, sortBy, sortDir,
@@ -166,7 +166,9 @@ export default function ActionsPage() {
         <div className="flex gap-2">
           <button className="btn btn-secondary" onClick={() => handleExport('excel')}>تصدير إلى Excel</button>
           <button className="btn btn-secondary" onClick={() => handleExport('csv')}>تصدير إلى CSV</button>
-          <button className="btn btn-primary" onClick={() => { setEditingAction(null); setModalOpen(true); }}>+ إضافة عملية</button>
+          {directorateFilter !== 'ACADEMY' && (
+            <button className="btn btn-primary" onClick={() => { setEditingAction(null); setModalOpen(true); }}>+ إضافة عملية</button>
+          )}
         </div>
       </div>
 
@@ -202,6 +204,7 @@ export default function ActionsPage() {
               <thead>
                 <tr className="text-slate-500 border-b border-slate-200">
                   <th className="text-right py-2 cursor-pointer" onClick={() => handleSort('number')}>رقم {sortIcon('number')}</th>
+                  {directorateFilter === 'ACADEMY' && <th className="text-right">المديرية</th>}
                   <th className="text-right cursor-pointer" onClick={() => handleSort('title')}>العملية {sortIcon('title')}</th>
                   <th className="text-right">المنسق</th>
                   <th className="text-right">البداية</th>
@@ -218,6 +221,7 @@ export default function ActionsPage() {
                 {items.map((item) => (
                   <tr key={item.id} className="border-b border-slate-100 hover:bg-slate-50">
                     <td className="py-2 font-medium">{item.number}</td>
+                    {directorateFilter === 'ACADEMY' && <td className="whitespace-nowrap">{item.directorateName || '—'}</td>}
                     <td className="max-w-xs truncate" title={item.title}>{item.title}</td>
                     <td>{item.coordinatorName || '—'}</td>
                     <td className="text-xs text-slate-500">{item.startDate?.slice(0, 10) || '—'}</td>
@@ -271,7 +275,7 @@ export default function ActionsPage() {
         )}
       </div>
 
-      {modalOpen && directorateFilter && (
+      {modalOpen && directorateFilter && directorateFilter !== 'ACADEMY' && (
         <ActionFormModal
           action={editingAction}
           directorateId={directorateFilter}

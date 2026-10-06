@@ -160,14 +160,10 @@ router.get('/import/template', async (req, res) => {
 
   if (directorates.length === 0) workbook.addWorksheet('لا توجد مديرية متاحة');
 
-  // إنشاء الملف بالكامل في الذاكرة قبل إرساله، وهو أكثر موثوقية مع Vercel Serverless
-  const buffer = await workbook.xlsx.writeBuffer();
-
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename="AREF-Plan-Template.xlsx"');
-  res.setHeader('Content-Length', buffer.byteLength.toString());
-
-  return res.status(200).send(Buffer.from(buffer));
+  res.setHeader('Content-Disposition', 'attachment; filename="نموذج-استيراد-خطة-العمل.xlsx"');
+  await workbook.xlsx.write(res);
+  res.end();
 });
 
 // ---------------- POST /api/import/preview ----------------
@@ -268,7 +264,7 @@ async function fetchFilteredActions(req: any) {
   const { academicYearId, directorateId, status, coordinatorName, search } = req.query as Record<string, string>;
   const where: any = {};
   if (user.role === 'PROVINCIAL') where.directorateId = user.directorateId;
-  else if (directorateId) where.directorateId = directorateId;
+  else if (directorateId && directorateId !== 'ACADEMY') where.directorateId = directorateId;
   if (academicYearId) where.academicYearId = academicYearId;
   if (coordinatorName) where.coordinatorName = { contains: coordinatorName };
   if (status) where.status = status;
@@ -278,6 +274,8 @@ async function fetchFilteredActions(req: any) {
 }
 
 router.get('/export/excel', async (req, res) => {
+  const user = req.user!;
+  const { directorateId } = req.query as Record<string, string>;
   const actions = await fetchFilteredActions(req);
   const workbook = new ExcelJS.Workbook();
 
@@ -290,11 +288,15 @@ router.get('/export/excel', async (req, res) => {
 
   const headers = ['رقم العملية', 'العملية', 'منسق العملية', 'بداية الإنجاز', 'نهاية الإنجاز', 'المؤشر', 'القيمة الحالية', 'القيمة المستهدفة', 'القيمة المنجزة', 'وضعية العملية'];
 
-  for (const [directorateName, rows] of byDirectorate) {
-    const sheet = workbook.addWorksheet(directorateName, { views: [{ rightToLeft: true }] });
-    sheet.addRow(headers).font = { bold: true };
-    for (const a of rows as any[]) {
+  if (directorateId === 'ACADEMY' && user.role !== 'PROVINCIAL') {
+    // تصدير موحّد للأكاديمية: جميع المديريات في ورقة Excel واحدة
+    const sheet = workbook.addWorksheet('الأكاديمية', { views: [{ rightToLeft: true }] });
+    const academyHeaders = ['المديرية', ...headers];
+    sheet.addRow(academyHeaders).font = { bold: true };
+
+    for (const a of actions as any[]) {
       sheet.addRow([
+        a.directorate?.name || '',
         a.number, a.title, a.coordinatorName || '',
         a.startDate ? a.startDate.toISOString().slice(0, 10) : '',
         a.endDate ? a.endDate.toISOString().slice(0, 10) : '',
@@ -302,14 +304,39 @@ router.get('/export/excel', async (req, res) => {
         statusToArabic(a.status),
       ]);
     }
-    sheet.columns.forEach((c) => (c.width = 22));
-  }
-  if (byDirectorate.size === 0) workbook.addWorksheet('لا توجد بيانات');
 
+    sheet.columns = [
+      { width: 28 }, { width: 12 }, { width: 42 }, { width: 24 },
+      { width: 16 }, { width: 16 }, { width: 34 }, { width: 18 },
+      { width: 18 }, { width: 18 }, { width: 22 },
+    ];
+  } else {
+    // التصدير الحالي لكل مديرية على حدة يبقى كما هو
+    for (const [directorateName, rows] of byDirectorate) {
+      const sheet = workbook.addWorksheet(directorateName, { views: [{ rightToLeft: true }] });
+      sheet.addRow(headers).font = { bold: true };
+      for (const a of rows as any[]) {
+        sheet.addRow([
+          a.number, a.title, a.coordinatorName || '',
+          a.startDate ? a.startDate.toISOString().slice(0, 10) : '',
+          a.endDate ? a.endDate.toISOString().slice(0, 10) : '',
+          a.indicator || '', a.currentValue ?? '', a.targetValue ?? '', a.achievedValue ?? '',
+          statusToArabic(a.status),
+        ]);
+      }
+      sheet.columns.forEach((c) => (c.width = 22));
+    }
+    if (byDirectorate.size === 0) workbook.addWorksheet('لا توجد بيانات');
+  }
+
+  const buffer = await workbook.xlsx.writeBuffer();
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename="export.xlsx"');
-  await workbook.xlsx.write(res);
-  res.end();
+  res.setHeader(
+    'Content-Disposition',
+    `attachment; filename="${directorateId === 'ACADEMY' ? 'export-academy.xlsx' : 'export.xlsx'}"`
+  );
+  res.setHeader('Content-Length', buffer.byteLength.toString());
+  return res.status(200).send(Buffer.from(buffer));
 });
 
 router.get('/export/csv', async (req, res) => {
