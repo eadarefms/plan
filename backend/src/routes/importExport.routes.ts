@@ -102,7 +102,12 @@ async function parseWorkbook(buffer: Buffer, allowedDirectorateNames: string[] |
 
 // ---------------- GET /api/import/template (تحميل نموذج Excel فارغ للتعبئة) ----------------
 router.get('/import/template', async (req, res) => {
+  try {
   const user = req.user!;
+
+  if (user.role === 'PROVINCIAL' && !user.directorateId) {
+    return res.status(400).json({ message: 'لا توجد مديرية مرتبطة بهذا الحساب.' });
+  }
 
   const directorates = user.role === 'PROVINCIAL'
     ? await prisma.directorate.findMany({ where: { id: user.directorateId! } })
@@ -160,10 +165,18 @@ router.get('/import/template', async (req, res) => {
 
   if (directorates.length === 0) workbook.addWorksheet('لا توجد مديرية متاحة');
 
+  // ملاحظة: رؤوس HTTP لا تقبل الأحرف العربية مباشرة (تسبب خطأ ERR_INVALID_CHAR وتعليق الطلب)،
+  // لذلك نستعمل اسمًا لاتينيًا + filename* المرمَّز بـ UTF-8 للاسم العربي.
+  const arabicName = encodeURIComponent('نموذج-استيراد-خطة-العمل.xlsx');
+  const buffer = await workbook.xlsx.writeBuffer();
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename="نموذج-استيراد-خطة-العمل.xlsx"');
-  await workbook.xlsx.write(res);
-  res.end();
+  res.setHeader('Content-Disposition', `attachment; filename="import-template.xlsx"; filename*=UTF-8''${arabicName}`);
+  res.setHeader('Content-Length', buffer.byteLength.toString());
+  return res.status(200).send(Buffer.from(buffer));
+  } catch (e: any) {
+    console.error('Template download failed:', e);
+    if (!res.headersSent) return res.status(500).json({ message: 'تعذّر إنشاء نموذج Excel.', detail: e.message });
+  }
 });
 
 // ---------------- POST /api/import/preview ----------------
