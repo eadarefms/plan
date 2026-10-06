@@ -177,6 +177,7 @@ export default function ActionsPage() {
           <div>
             <label className="block text-xs text-slate-500 mb-1">المديرية</label>
             <select className="input !w-48" value={directorateFilter} onChange={(e) => { setDirectorateFilter(e.target.value); setPage(1); }}>
+              <option value="ACADEMY">الأكاديمية (كل المديريات)</option>
               {directorates.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           </div>
