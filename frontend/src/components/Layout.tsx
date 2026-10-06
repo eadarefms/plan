@@ -25,6 +25,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="min-h-screen flex bg-slate-50">
       <aside className="w-64 bg-white border-l border-slate-200 flex flex-col shrink-0">
         <div className="p-5 border-b border-slate-100">
+          <img src="/logo.png" alt="الأكاديمية الجهوية للتربية والتكوين - جهة مراكش آسفي" className="w-full h-auto mb-3" />
           <h1 className="text-lg font-extrabold text-brand-700 leading-tight">نظام تتبع خطط العمل</h1>
           <p className="text-xs text-slate-400 mt-1">AREF Marrakech-Safi</p>
         </div>
