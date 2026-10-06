@@ -160,10 +160,14 @@ router.get('/import/template', async (req, res) => {
 
   if (directorates.length === 0) workbook.addWorksheet('لا توجد مديرية متاحة');
 
+  // إنشاء الملف بالكامل في الذاكرة قبل إرساله، وهو أكثر موثوقية مع Vercel Serverless
+  const buffer = await workbook.xlsx.writeBuffer();
+
   res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-  res.setHeader('Content-Disposition', 'attachment; filename="نموذج-استيراد-خطة-العمل.xlsx"');
-  await workbook.xlsx.write(res);
-  res.end();
+  res.setHeader('Content-Disposition', 'attachment; filename="AREF-Plan-Template.xlsx"');
+  res.setHeader('Content-Length', buffer.byteLength.toString());
+
+  return res.status(200).send(Buffer.from(buffer));
 });
 
 // ---------------- POST /api/import/preview ----------------
